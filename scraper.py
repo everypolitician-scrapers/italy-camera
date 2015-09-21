@@ -18,24 +18,22 @@ def fetch_member(url):
     print("Fetching: {}".format(url))
     r = requests.get(url)
     time.sleep(0.5)
-    soup = bs(r.text)
+    soup = bs(r.text, "html.parser")
+    member = {}
 
-    email = soup.find("div", {"class": "buttonMail"}).a["href"].split('=')[-1]
+    email_button = soup.find("div", {"class": "buttonMail"})
+    if email_button:
+        member["email"] = email_button.a["href"].split('=')[-1]
 
     bio = soup.find("div", {"class": "datibiografici"}).text
     dob_str = re.search(r'\d+ [^ ]+ \d{4}', bio).group()
-    birth_date = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
+    member["birth_date"] = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
 
     election_data = soup.find("div", {"class": "datielettoriali"}).text
-    area = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
-    party = re.search(r'Lista di elezione\s+(.*?)\n', election_data).groups()[0]
+    member["area"] = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
+    member["party"] = re.search(r'Lista di elezione\s+(.*?)\n', election_data).groups()[0]
 
-    return {
-        "email": email,
-        "birth_date": birth_date,
-        "area": area,
-        "party": party,
-    }
+    return member
 
 def fetch_members(gender):
     page = 0
@@ -46,7 +44,7 @@ def fetch_members(gender):
         print("Fetching: {}".format(url))
         r = requests.get(url)
         time.sleep(0.5)
-        soup = bs(r.text)
+        soup = bs(r.text, "html.parser")
         members_ul = soup.find("ul", {"class": "main_img_ul"})
         if not members_ul:
             break
@@ -59,7 +57,7 @@ def fetch_members(gender):
                 "birth_date": member["birth_date"],
                 "area": member["area"],
                 "party": member["party"],
-                "email": member["email"],
+                "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
                 "image": member_li.img['src'],
                 "gender": "female" if gender == "F" else "male",
