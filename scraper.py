@@ -41,7 +41,6 @@ def fetch_member(url):
 
 def fetch_members(gender):
     page = 0
-    members = []
     while True:
         page += 1
         url = url_tmpl.format(page=page, gender=gender)
@@ -53,6 +52,7 @@ def fetch_members(gender):
         if not members_ul:
             break
         member_lis = members_ul.find_all("li")
+        members = []
         for member_li in member_lis:
             url = base_url.format(member_li.a['href'].replace('\n', ''))
             member = fetch_member(url)
@@ -67,11 +67,7 @@ def fetch_members(gender):
                 "gender": "female" if gender == "F" else "male",
                 "source": url,
             })
-    return members
+        scraperwiki.sqlite.save(["id"], members, "data")
 
-
-members = []
 for gender in ["M", "F"]:
-    members += fetch_members(gender)
-
-scraperwiki.sqlite.save(["id"], members, "data")
+    fetch_members(gender)
