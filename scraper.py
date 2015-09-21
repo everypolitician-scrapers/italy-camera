@@ -35,7 +35,9 @@ def fetch_member(url):
     if election_data_soup:
         election_data = election_data_soup.text
         member["area"] = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
-        member["party"] = re.search(r'Lista di elezione\s+(.*?)\n', election_data).groups()[0]
+        party = re.search(r'Lista di elezione\s+(.*?)\n', election_data)
+        if party:
+            member["party"] = party.groups()[0]
 
     return member
 
