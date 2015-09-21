@@ -26,7 +26,7 @@ def fetch_member(url):
         member["email"] = email_button.a["href"].split('=')[-1]
 
     bio = soup.find("div", {"class": "datibiografici"}).text
-    dob_str = re.search(r'\d+ [^ ]+ \d{4}', bio).group()
+    dob_str = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', bio).groups())
     member["birth_date"] = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
 
     election_data = soup.find("div", {"class": "datielettoriali"}).text
