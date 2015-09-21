@@ -9,7 +9,7 @@ import requests
 import scraperwiki
 
 
-locale.setlocale(locale.LC_ALL,'it_IT')
+locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 
 base_url = "http://www.camera.it/leg17/{}"
 url_tmpl = base_url.format("313?shadow_deputato_is_deputato_in_carica=1&current_page_2632={page}&shadow_deputato_has_sesso={gender}")
