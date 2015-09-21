@@ -11,8 +11,8 @@ import scraperwiki
 
 locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 
-base_url = "http://www.camera.it/leg17/{}"
-url_tmpl = base_url.format("313?shadow_deputato_is_deputato_in_carica=1&current_page_2632={page}&shadow_deputato_has_sesso={gender}")
+base_url = "http://www.camera.it"
+url_tmpl = base_url + "/leg17/313?shadow_deputato_is_deputato_in_carica=1&current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 
 def fetch_member(url):
     print("Fetching: {}".format(url))
@@ -56,7 +56,7 @@ def fetch_members(gender):
         member_lis = members_ul.find_all("li")
         members = []
         for member_li in member_lis:
-            url = base_url.format(member_li.a['href'].replace('\n', ''))
+            url = base_url + "/leg17/" + member_li.a['href'].replace('\n', '')
             member = fetch_member(url)
             members.append({
                 "id": member_li['id'][12:],
@@ -65,7 +65,7 @@ def fetch_members(gender):
                 "party": member.get("party"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
-                "image": member_li.img['src'],
+                "image": base_url + member_li.img['src'],
                 "gender": "female" if gender == "F" else "male",
                 "source": url,
             })
