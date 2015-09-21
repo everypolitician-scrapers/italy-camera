@@ -23,7 +23,8 @@ def fetch_member(url):
 
     email_button = soup.find("div", {"class": "buttonMail"})
     if email_button:
-        member["email"] = email_button.a["href"].split('=')[-1]
+        email = email_button.a["href"].split('=')[-1]
+        member["email"] = email if '@' in email else None
 
     bio_soup = soup.find("div", {"class": "datibiografici"})
     if bio_soup:
