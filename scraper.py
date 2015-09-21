@@ -73,5 +73,5 @@ def fetch_members(gender):
             })
         scraperwiki.sqlite.save(["id"], members, "data")
 
-for gender in ["M", "F"]:
+for gender in ["F", "M"]:
     fetch_members(gender)
