@@ -25,13 +25,17 @@ def fetch_member(url):
     if email_button:
         member["email"] = email_button.a["href"].split('=')[-1]
 
-    bio = soup.find("div", {"class": "datibiografici"}).text
-    dob_str = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', bio).groups())
-    member["birth_date"] = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
+    bio_soup = soup.find("div", {"class": "datibiografici"})
+    if bio_soup:
+        bio = bio_soup.text
+        dob_str = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', bio).groups())
+        member["birth_date"] = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
 
-    election_data = soup.find("div", {"class": "datielettoriali"}).text
-    member["area"] = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
-    member["party"] = re.search(r'Lista di elezione\s+(.*?)\n', election_data).groups()[0]
+    election_data_soup = soup.find("div", {"class": "datielettoriali"})
+    if election_data_soup:
+        election_data = election_data_soup.text
+        member["area"] = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
+        member["party"] = re.search(r'Lista di elezione\s+(.*?)\n', election_data).groups()[0]
 
     return member
 
@@ -54,9 +58,9 @@ def fetch_members(gender):
             member = fetch_member(url)
             members.append({
                 "id": member_li['id'][12:],
-                "birth_date": member["birth_date"],
-                "area": member["area"],
-                "party": member["party"],
+                "birth_date": member.get("birth_date"),
+                "area": member.get("area"),
+                "party": member.get("party"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
                 "image": member_li.img['src'],
