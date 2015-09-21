@@ -67,6 +67,7 @@ def fetch_members(gender):
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
                 "image": base_url + member_li.img['src'],
                 "gender": "female" if gender == "F" else "male",
+                "term": 17,
                 "source": url,
             })
         scraperwiki.sqlite.save(["id"], members, "data")
