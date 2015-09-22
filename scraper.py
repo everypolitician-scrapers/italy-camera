@@ -50,12 +50,12 @@ def fetch_member(url):
         for section_title in section_titles:
             title_text = section_title.text.strip()
             content_text = unicode(section_title.next_sibling)
-            if title_text == "Eletto nella circoscrizione":
+            if re.match(r"Elett(?:o|a) nella circoscrizione", title_text):
                 area = content_text
                 member["area_id"], member["area"] = re.search(r'([^\s]+) \(([^\)]+)\)', area).groups()
             elif title_text == "Lista di elezione":
                 member["party"] = content_text
-            elif title_text.startswith("Proclamat"):
+            elif re.match(r"Proclamat(?:o|a)", title_text):
                 start_date = parse_date(content_text)
                 if start_date > "2013-03-15":
                     member["start_date"] = start_date
