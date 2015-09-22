@@ -12,7 +12,7 @@ import scraperwiki
 locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 
 base_url = "http://www.camera.it"
-url_tmpl = base_url + "/leg17/313?shadow_deputato_is_deputato_in_carica=1&current_page_2632={page}&shadow_deputato_has_sesso={gender}"
+url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 
 def fetch_member(url):
     print("Fetching: {}".format(url))
@@ -57,12 +57,17 @@ def fetch_members(gender):
         member_lis = members_ul.find_all("li")
         members = []
         for member_li in member_lis:
+            end_date = member_li.find("div", {"class": "has_data_cessazione_mandato_parlamentare"})
+            if end_date:
+                end_date = re.search(r'\d{2}\.\d{2}\.\d{4}', end_date.text).group()
+                end_date = "{}-{}-{}".format(end_date[6:], end_date[3:5], end_date[:2])
             url = base_url + "/leg17/" + member_li.a['href'].replace('\n', '')
             member = fetch_member(url)
             members.append({
                 "id": member_li['id'][12:],
                 "birth_date": member.get("birth_date"),
                 "area": member.get("area"),
+                "end_date": end_date,
                 "party": member.get("party"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
