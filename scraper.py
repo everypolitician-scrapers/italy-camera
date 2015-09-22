@@ -25,6 +25,14 @@ def fetch_member(url):
     soup = bs(r.text, "html.parser")
     member = {}
 
+    if soup.find("span", {"class": "external_source_error"}):
+        return member
+
+    name = soup.find("div", {"class": "nominativo"}).text
+    party_id_match = re.search(r"\s+-\s+(.*)", name)
+    if party_id_match:
+        member["party_id"] = party_id_match.group(1)
+
     email_button = soup.find("div", {"class": "buttonMail"})
     if email_button:
         email = email_button.a["href"].split('=')[-1]
@@ -81,6 +89,7 @@ def fetch_members(gender):
                 "area": member.get("area"),
                 "start_date": member.get("start_date"),
                 "end_date": end_date,
+                "party_id": member.get("party_id"),
                 "party": member.get("party"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
