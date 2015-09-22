@@ -30,9 +30,10 @@ def fetch_member(url):
         return member
 
     name = soup.find("div", {"class": "nominativo"}).text
-    party_id_match = re.search(r"\s+-\s+(.*)", name)
+    party_id_match = re.search(r"\s+-\s+(.*)(?:\s*)?", name)
     if party_id_match:
-        member["party_id"] = party_id_match.group(1)
+        if party_id_match.group(1) != "Presidente della Camera":
+            member["party_id"] = party_id_match.group(1)
 
     email_button = soup.find("div", {"class": "buttonMail"})
     if email_button:
