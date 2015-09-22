@@ -11,6 +11,7 @@ import scraperwiki
 
 locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 
+term = "17"
 base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 
@@ -81,6 +82,8 @@ def fetch_members(gender):
                 end_date = re.search(r'\d{2}\.\d{2}\.\d{4}', end_date.text).group()
                 end_date = "{}-{}-{}".format(end_date[6:], end_date[3:5], end_date[:2])
             url = base_url + "/leg17/" + member_li.a['href'].replace('\n', '')
+            if url[-1] == "=":
+                url += term
             member = fetch_member(url)
             members.append({
                 "id": member_li['id'][12:],
@@ -95,7 +98,7 @@ def fetch_members(gender):
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
                 "image": base_url + member_li.img['src'],
                 "gender": "female" if gender == "F" else "male",
-                "term": 17,
+                "term": term,
                 "source": url,
             })
         scraperwiki.sqlite.save(["id"], members, "data")
