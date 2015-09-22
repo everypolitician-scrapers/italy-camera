@@ -14,6 +14,10 @@ locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 
+def parse_date(text):
+    date = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', text).groups())
+    return datetime.strptime(date, "%d %B %Y").strftime("%Y-%m-%d")
+
 def fetch_member(url):
     print("Fetching: {}".format(url))
     r = requests.get(url)
@@ -28,17 +32,24 @@ def fetch_member(url):
 
     bio_soup = soup.find("div", {"class": "datibiografici"})
     if bio_soup:
-        bio = bio_soup.text
-        dob_str = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', bio).groups())
-        member["birth_date"] = datetime.strptime(dob_str, "%d %B %Y").strftime("%Y-%m-%d")
+        member["birth_date"] = parse_date(bio_soup.text)
 
     election_data_soup = soup.find("div", {"class": "datielettoriali"})
     if election_data_soup:
-        election_data = election_data_soup.text
-        member["area"] = re.search(r'\(([^\)]+)\)', election_data).groups()[0]
-        party = re.search(r'Lista di elezione\s+(.*?)\n', election_data)
-        if party:
-            member["party"] = party.groups()[0]
+        section_titles = election_data_soup.find_all('h4')
+
+        for section_title in section_titles:
+            title_text = section_title.text.strip()
+            content_text = unicode(section_title.next_sibling)
+            if title_text == "Eletto nella circoscrizione":
+                area = content_text
+                member["area_id"], member["area"] = re.search(r'([^\s]+) \(([^\)]+)\)', area).groups()
+            elif title_text == "Lista di elezione":
+                member["party"] = content_text
+            elif title_text.startswith("Proclamat"):
+                start_date = parse_date(content_text)
+                if start_date > "2013-03-15":
+                    member["start_date"] = start_date
 
     return member
 
@@ -66,7 +77,9 @@ def fetch_members(gender):
             members.append({
                 "id": member_li['id'][12:],
                 "birth_date": member.get("birth_date"),
+                "area_id": member.get("area_id"),
                 "area": member.get("area"),
+                "start_date": member.get("start_date"),
                 "end_date": end_date,
                 "party": member.get("party"),
                 "email": member.get("email"),
