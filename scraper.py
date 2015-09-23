@@ -3,6 +3,8 @@ from datetime import datetime
 import locale
 import re
 import time
+import os
+import os.path
 
 from bs4 import BeautifulSoup as bs
 import requests
@@ -16,15 +18,25 @@ base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 party_dict = {}
 
+def fetch_url(url, filename):
+    if not os.environ.get("MORPH_ENV") and os.path.exists(os.path.join('cache', filename)):
+        with open(os.path.join('cache', filename)) as f:
+            r = f.read().decode('utf8')
+    else:
+        r = requests.get(url).text
+        time.sleep(0.5)
+        with open(os.path.join('cache', filename), 'w') as f:
+            f.write(r.encode('utf8'))
+    return r
+
 def parse_date(text):
     date = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', text).groups())
     return datetime.strptime(date, "%d %B %Y").strftime("%Y-%m-%d")
 
-def fetch_member(url):
+def scrape_person(url, id_):
     print("Fetching: {}".format(url))
-    r = requests.get(url)
-    time.sleep(0.5)
-    soup = bs(r.text, "html.parser")
+    r = fetch_url(url, "member-{}.html".format(id_))
+    soup = bs(r, "html.parser")
     member = {}
 
     if soup.find("span", {"class": "external_source_error"}):
@@ -66,21 +78,21 @@ def fetch_member(url):
 
     return member
 
-def fetch_members(gender):
+def scrape_list(gender):
     members = []
     page = 0
     while True:
         page += 1
         url = url_tmpl.format(page=page, gender=gender)
         print("Fetching: {}".format(url))
-        r = requests.get(url)
-        time.sleep(0.5)
-        soup = bs(r.text, "html.parser")
+        r = fetch_url(url, "index-{}-{}.html".format(gender, page))
+        soup = bs(r, "html.parser")
         members_ul = soup.find("ul", {"class": "main_img_ul"})
         if not members_ul:
             break
         member_lis = members_ul.find_all("li")
         for member_li in member_lis:
+            id_ = member_li['id'][12:]
             end_date = member_li.find("div", {"class": "has_data_cessazione_mandato_parlamentare"})
             if end_date:
                 end_date = re.search(r'\d{2}\.\d{2}\.\d{4}', end_date.text).group()
@@ -88,9 +100,9 @@ def fetch_members(gender):
             url = base_url + "/leg17/" + member_li.a['href'].replace('\n', '')
             if url[-1] == "=":
                 url += term
-            member = fetch_member(url)
+            member = scrape_person(url, id_)
             members.append({
-                "id": member_li['id'][12:],
+                "id": id_,
                 "birth_date": member.get("birth_date"),
                 "area_id": member.get("area_id"),
                 "area": member.get("area"),
@@ -108,7 +120,7 @@ def fetch_members(gender):
 
 members = []
 for gender in ["F", "M"]:
-    members += fetch_members(gender)
+    members += scrape_list(gender)
 
 for x in members:
     x["party_id"] = party_dict.get(x["party"])
