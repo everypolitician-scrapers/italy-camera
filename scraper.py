@@ -14,6 +14,7 @@ locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 term = "17"
 base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
+party_dict = {}
 
 def parse_date(text):
     date = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', text).groups())
@@ -28,12 +29,6 @@ def fetch_member(url):
 
     if soup.find("span", {"class": "external_source_error"}):
         return member
-
-    name = soup.find("div", {"class": "nominativo"}).text
-    party_id_match = re.search(r"\s+-\s+(.*)(?:\s*)?", name)
-    if party_id_match:
-        if party_id_match.group(1) != "Presidente della Camera":
-            member["party_id"] = party_id_match.group(1)
 
     email_button = soup.find("div", {"class": "buttonMail"})
     if email_button:
@@ -61,9 +56,18 @@ def fetch_member(url):
                 if start_date > "2013-03-15":
                     member["start_date"] = start_date
 
+    if member.get("party"):
+        name = soup.find("div", {"class": "nominativo"}).text
+        party_id_match = re.search(r"\s+-\s+(.*?)(?:\s*)?$", name)
+        if party_id_match:
+            party_id = party_id_match.group(1)
+            if party_id and party_id != "Presidente della Camera":
+                party_dict[member["party"]] = party_id
+
     return member
 
 def fetch_members(gender):
+    members = []
     page = 0
     while True:
         page += 1
@@ -76,7 +80,6 @@ def fetch_members(gender):
         if not members_ul:
             break
         member_lis = members_ul.find_all("li")
-        members = []
         for member_li in member_lis:
             end_date = member_li.find("div", {"class": "has_data_cessazione_mandato_parlamentare"})
             if end_date:
@@ -93,7 +96,6 @@ def fetch_members(gender):
                 "area": member.get("area"),
                 "start_date": member.get("start_date"),
                 "end_date": end_date,
-                "party_id": member.get("party_id"),
                 "party": member.get("party"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
@@ -102,7 +104,13 @@ def fetch_members(gender):
                 "term": term,
                 "source": url,
             })
-        scraperwiki.sqlite.save(["id"], members, "data")
+    return members
 
+members = []
 for gender in ["F", "M"]:
-    fetch_members(gender)
+    members += fetch_members(gender)
+
+for x in members:
+    x["party_id"] = party_dict.get(x["party"])
+
+scraperwiki.sqlite.save(["id"], members, "data")
