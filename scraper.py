@@ -16,7 +16,7 @@ locale.setlocale(locale.LC_ALL,'it_IT.utf8')
 term = "17"
 base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
-party_dict = {}
+group_dict = {}
 
 def fetch_url(url, filename):
     if not os.environ.get("MORPH_ENV") and os.path.exists(os.path.join('cache', filename)):
@@ -29,12 +29,11 @@ def fetch_url(url, filename):
             f.write(r.encode('utf8'))
     return r
 
-def parse_date(text):
-    date = "{} {} {}".format(*re.search(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', text).groups())
-    return datetime.strptime(date, "%d %B %Y").strftime("%Y-%m-%d")
+def parse_dates(text):
+    return [datetime.strptime("{} {} {}".format(*x), "%d %B %Y").strftime("%Y-%m-%d") for x in re.findall(ur'(\d+)\xb0?\s+([^ ]+)\s+(\d{4})', text)]
 
 def scrape_person(url, id_):
-    print("Fetching: {}".format(url))
+    # print("Fetching: {}".format(url))
     r = fetch_url(url, "member-{}.html".format(id_))
     soup = bs(r, "html.parser")
     member = {}
@@ -48,43 +47,50 @@ def scrape_person(url, id_):
         member["email"] = email if '@' in email else None
 
     bio_soup = soup.find("div", {"class": "datibiografici"})
-    if bio_soup:
-        member["birth_date"] = parse_date(bio_soup.text)
+    member["birth_date"] = parse_dates(bio_soup.text)[0]
 
     election_data_soup = soup.find("div", {"class": "datielettoriali"})
-    if election_data_soup:
-        section_titles = election_data_soup.find_all('h4')
+    section_titles = election_data_soup.find_all('h4')
 
-        for section_title in section_titles:
-            title_text = section_title.text.strip()
-            content_text = unicode(section_title.next_sibling)
-            if re.match(r"Elett(?:o|a) nella circoscrizione", title_text):
-                area = content_text
-                member["area_id"], member["area"] = re.search(r'([^\s]+) \(([^\)]+)\)', area).groups()
-            elif title_text == "Lista di elezione":
-                member["party"] = content_text
-            elif re.match(r"Proclamat(?:o|a)", title_text):
-                start_date = parse_date(content_text)
-                if start_date > "2013-03-15":
-                    member["start_date"] = start_date
+    for section_title in section_titles:
+        title_text = section_title.text.strip()
+        content_text = unicode(section_title.next_sibling)
+        if re.match(r"Elett(?:o|a) nella circoscrizione", title_text):
+            area = content_text
+            member["area_id"], member["area"] = re.search(r'([^\s]+) \(([^\)]+)\)', area).groups()
+        elif title_text == "Lista di elezione":
+            member["election_list"] = content_text
+        elif re.match(r"Proclamat(?:o|a)", title_text):
+            start_date = parse_dates(content_text)[0]
+            if start_date > "2013-03-15":
+                member["start_date"] = start_date
 
-    if member.get("party"):
-        name = soup.find("div", {"class": "nominativo"}).text
-        party_id_match = re.search(r"\s+-\s+(.*?)(?:\s*)?$", name)
-        if party_id_match:
-            party_id = party_id_match.group(1)
-            if party_id and party_id != "Presidente della Camera":
-                party_dict[member["party"]] = party_id
+    groups = []
+    groups_soup = soup.find(text=re.compile(r"al gruppo parlamentare"))
+    if groups_soup:
+        group_soups = groups_soup.find_next('ul').find_all('li')
+        for group_soup in group_soups:
+            group_str = group_soup.text.replace(u'\xa0', u' ')
+            group_dates = parse_dates(group_str)
+            group_name = re.match(ur"^(.*?)\s+dal(?: |l')\d", group_str, re.DOTALL).group(1)
+            group_name = re.sub(r"\s\s*", " ", group_name)
+            if group_name.lower() in group_dict:
+                group_name = group_dict[group_name.lower()]
+            else:
+                group_dict[group_name.lower()] = group_name
+            groups.append([group_name] + group_dates)
+
+    member["groups"] = groups
 
     return member
 
 def scrape_list(gender):
-    members = []
+    data = []
     page = 0
     while True:
         page += 1
         url = url_tmpl.format(page=page, gender=gender)
-        print("Fetching: {}".format(url))
+        # print("Fetching: {}".format(url))
         r = fetch_url(url, "index-{}-{}.html".format(gender, page))
         soup = bs(r, "html.parser")
         members_ul = soup.find("ul", {"class": "main_img_ul"})
@@ -101,28 +107,40 @@ def scrape_list(gender):
             if url[-1] == "=":
                 url += term
             member = scrape_person(url, id_)
-            members.append({
+            all_fields = {
                 "id": id_,
                 "birth_date": member.get("birth_date"),
                 "area_id": member.get("area_id"),
                 "area": member.get("area"),
                 "start_date": member.get("start_date"),
                 "end_date": end_date,
-                "party": member.get("party"),
+                "election_list": member.get("election_list"),
                 "email": member.get("email"),
                 "name": member_li.find("div", {"class": "nome_cognome_notorieta"}).text.strip(),
                 "image": base_url + member_li.img['src'],
                 "gender": "female" if gender == "F" else "male",
                 "term": term,
                 "source": url,
-            })
-    return members
+            }
+            if all_fields["start_date"]:
+                d = dict(all_fields)
+                d["end_date"] = member["groups"][-1][1]
+                data.append(d)
+            if member.get("groups"):
+                for group in member["groups"]:
+                    d = dict(all_fields)
+                    d["group"] = group[0]
+                    if group[1] > "2013-03-15":
+                        d["start_date"] = group[1]
+                    if len(group) == 3:
+                        d["end_date"] = group[2]
+                    data.append(d)
+            else:
+                data.append(all_fields)
+    return data
 
-members = []
+data = []
 for gender in ["F", "M"]:
-    members += scrape_list(gender)
+    data += scrape_list(gender)
 
-for x in members:
-    x["party_id"] = party_dict.get(x["party"])
-
-scraperwiki.sqlite.save(["id"], members, "data")
+scraperwiki.sqlite.save(["id", "start_date"], data, "data")
