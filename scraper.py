@@ -17,6 +17,7 @@ term = "17"
 base_url = "http://www.camera.it"
 url_tmpl = base_url + "/leg17/313?current_page_2632={page}&shadow_deputato_has_sesso={gender}"
 group_dict = {}
+term_start_date = "2013-03-19"
 
 def fetch_url(url, filename):
     if not os.environ.get("MORPH_ENV") and os.path.exists(os.path.join('cache', filename)):
@@ -62,7 +63,7 @@ def scrape_person(url, id_):
             member["election_list"] = content_text
         elif re.match(r"Proclamat(?:o|a)", title_text):
             start_date = parse_dates(content_text)[0]
-            if start_date > "2013-03-15":
+            if start_date > term_start_date:
                 member["start_date"] = start_date
 
     groups = []
@@ -122,15 +123,11 @@ def scrape_list(gender):
                 "term": term,
                 "source": url,
             }
-            if all_fields["start_date"]:
-                d = dict(all_fields)
-                d["end_date"] = member["groups"][-1][1]
-                data.append(d)
-            if member.get("groups"):
+            if member.get("groups") != []:
                 for group in member["groups"]:
                     d = dict(all_fields)
                     d["group"] = group[0]
-                    if group[1] > "2013-03-15":
+                    if group[1] > term_start_date:
                         d["start_date"] = group[1]
                     if len(group) == 3:
                         d["end_date"] = group[2]
