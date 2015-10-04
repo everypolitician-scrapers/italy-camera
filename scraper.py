@@ -123,7 +123,7 @@ def scrape_list(gender):
                 "term": term,
                 "source": url,
             }
-            if member.get("groups") != []:
+            if member.get("groups", []) != []:
                 for group in member["groups"]:
                     d = dict(all_fields)
                     d["group"] = group[0]
